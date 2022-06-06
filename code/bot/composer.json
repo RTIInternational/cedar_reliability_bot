@@ -1,0 +1,11 @@
+{
+    "require": {
+        "dmore/chrome-mink-driver": "^2.8",
+        "monolog/monolog": "^2.6",
+        "vlucas/phpdotenv": "^5.4"
+    },
+    "require-dev": {
+        "behat/mink-goutte-driver": "^2.0",
+        "behat/mink": "^1.10"
+    }
+}
