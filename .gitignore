@@ -1,8 +1,12 @@
 # ignore all logs
 *.log
+/code/bot/data
+/code/bot/logs
 
 # ignore composer vendor packages
 /vendor
+/code/bot/vendor
 
 # ignore .env
 .env
+/code/bot/.env
