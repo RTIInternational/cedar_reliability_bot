@@ -15,11 +15,13 @@ define ( 'URL_BASE', 'https://cedar.metadatacenter.org/');
 define ( 'URL_LOGOUT', 'https://cedar.metadatacenter.org/logout');
 define ( 'URL_CHROME_DRIVER', 'http://0.0.0.0:9222'); // don't forget the listening port
 
-define ( 'DEFAULT_NUMBER_OF_METADATA_ENTRIES_TO_POPULATE', 2);
+define ( 'DEFAULT_NUMBER_OF_METADATA_ENTRIES_TO_POPULATE', 20);
 
-define ( 'LOG_FILE', './cedarbot.log' );
-define ( 'VALUES_FILE_PREFIX', './populateData-');
+define ( 'LOG_FILE', './logs/cedarbot.log' );
+define ( 'VALUES_FILE_PREFIX', './data/populateData-');
 define ( 'VALUES_FILE_SUFFIX', '.csv');
 define ( 'VALUES_FILE_FIELD_DELIMITER', ',');
+
+define ( 'PERFORMANCE_LOG_FILE', './logs/cedarbot-run.log');
 
 ?>
