@@ -5,18 +5,19 @@ define ('RADIO', 2);
 define ('EMAIL', 3);
 define ('URL', 4);
 define ('NUMERIC', 5);
-define ('DATETIME', 7);
+define ('DATETIME', 6);
+define ('ID',7);
 
 // Question Text and associated attributes
 $fields = array(
     'Study Title or Name' => array(TEXTFIELD,REQUIRED),
     'Study Description or Abstract' => array(TEXTFIELD,REQUIRED),
     'Study Nickname or Alternative Title' => array(TEXTFIELD,REQUIRED),
-    'NIH Application ID' => array(TEXTFIELD,REQUIRED),
+    'NIH Application ID' => array(ID,REQUIRED),
     'NIH RePORTER Link' => array(URL,REQUIRED),
     'ClinicalTrials.gov Study ID' => array(TEXTFIELD,REQUIRED),
     'Name of Repository' => array(TEXTFIELD,REQUIRED),
-    'Study ID assigned by Repository' => array(TEXTFIELD,REQUIRED),
+    'Study ID assigned by Repository' => array(ID,REQUIRED),
     'Repository-branded Study Persistent Identifier' => array(TEXTFIELD,REQUIRED),
     'Study citation at Repository' => array(TEXTFIELD,REQUIRED),
     'CEDAR Study-level Metadata Template Instance ID' => array(TEXTFIELD,REQUIRED),
