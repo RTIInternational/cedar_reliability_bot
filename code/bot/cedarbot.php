@@ -17,6 +17,7 @@ require_once 'config.php';
 
 require_once 'Word.php';
 require_once 'Fields.php';
+require_once 'RunCounter.php';
 
 use Behat\Mink\Mink;
 use Behat\Mink\Session;
@@ -34,7 +35,7 @@ use Monolog\Handler\StreamHandler;
 
 
 // TBD check if there is an actual wait condition for the browser driver
-function wait($seconds=3) {
+function wait($seconds=2) {
 	sleep($seconds);
 }
 
@@ -116,7 +117,7 @@ function accessHealStudy() {
 
 function populateQuestion ( $fieldSection, &$valuesSubmitted ) {
 
-	global $fields, $log;
+	global $fields, $log, $runCounter;
 
 	$log->info('Processing for ' . $fieldSection->getText() );
 
@@ -139,11 +140,14 @@ function populateQuestion ( $fieldSection, &$valuesSubmitted ) {
 		$inputField = $form->find('css','input');
 		$fieldName = $inputField->getAttribute('name');
 
-		$value = '';
-		
+		$value = NULL;
+
+
 		if ( $fieldSpecification[0] !== NULL && $fieldSpecification[1] !== NULL ) {
 			if ( $fieldSpecification[0] === TEXTFIELD) {
 				$value = $word->getRandomWord();
+				if ( 'Study Title or Name' === $questionText ) // add a count to study title
+					$value .= ' [' . $runCounter->getPaddedCount() . ']';
 				$form->fillField('textField', $value);
 			}
 			else if ( $fieldSpecification[0] == URL) {
@@ -163,9 +167,14 @@ function populateQuestion ( $fieldSection, &$valuesSubmitted ) {
 				$value = $word->getRandomEmail();
 				$form->fillField('emailField', $value);
 			}
+			else if ( $fieldSpecification[0] == ID) {
+				$value = $word->getRandomId();
+				$form->fillField('textField',$value);
+			}
 			wait(5);
 		}
-		array_push($valuesSubmitted, $value); // just blindly record values submitted in order
+		//array_push($valuesSubmitted, $value); // just blindly record values submitted in order
+		$valuesSubmitted[$questionText] = $value; // store into array using question text as key
 	}
 	else {
 		throw new \Exception('Field for $questionText was not found in web form');
@@ -180,7 +189,7 @@ function populateQuestion ( $fieldSection, &$valuesSubmitted ) {
  */
 function populateHealthStudyMetadataEntity($populateCount, $valuesEnteredFile ) {
 
-	global $session, $log;
+	global $session, $log, $runCounter;
 
 	$valuesSubmitted = array();
 
@@ -202,17 +211,317 @@ function populateHealthStudyMetadataEntity($populateCount, $valuesEnteredFile ) 
 			$dateSaved = date('Y/m/d H:m:s');
 		}
 	}
+	$valuesSubmitted['saveDate'] = $dateSaved; // added so we can track down the record when we call the API to retrieve records
 
-	// Store a record of the values populated
+	// Store a record of the values populated - we might be beter to simply save this as a JSON instead of .csv file
 	$filePointer = fopen($valuesEnteredFile, 'a');
 	$populateCount++;
-	fwrite($filePointer, $populateCount . VALUES_FILE_FIELD_DELIMITER . $dateSaved . VALUES_FILE_FIELD_DELIMITER );
-	foreach ( $valuesSubmitted as $value ) {
+	foreach ( $valuesSubmitted as $key => $value ) {
+		fwrite($filePointer, $key . VALUES_FILE_FIELD_DELIMITER);
+	}
+	fwrite($filePointer, "\n" );
+	//fwrite($filePointer, $runCounter->getCount() . ',' . $populateCount . VALUES_FILE_FIELD_DELIMITER . $dateSaved . VALUES_FILE_FIELD_DELIMITER );
+	foreach ( $valuesSubmitted as $key => $value ) {
+		if ( $value == NULL ) $value = '';
 		fwrite($filePointer, $value . VALUES_FILE_FIELD_DELIMITER);
 	}
 	fwrite ( $filePointer, "\n" );
 	fclose ( $filePointer ) ; // housekeep
 	wait(10);
+
+	return $valuesSubmitted;
+}
+
+/**
+ * This is the function where we do our definitive "did it work" audit. Regardless of what was returned at other points.
+ */
+function auditValuesSubmitted ($valuesSubmitted=NULL ) {
+
+	global $log, $runCounter;
+
+	if ( isset ( $valuesSubmitted )) {
+
+		$records = getMetadataRecords();
+		$recordFound = FALSE;
+		foreach ( $records['resources'] as $resource) {
+		
+			if ( $resource['resourceType'] == 'instance' ) {
+
+				$metadataInstance = getMetadataResource($resource);
+
+				$apiStudyName = $metadataInstance['Minimal Info']['study_name']['@value'];
+				$submittedStudyName = $valuesSubmitted['Study Title or Name'];
+				$log->info('Comparing ' . $apiStudyName . ' to ' . $submittedStudyName );
+
+				if($apiStudyName === $submittedStudyName) {
+					$recordFound = TRUE;
+					$allMatches = compareFields ( $metadataInstance, $valuesSubmitted);
+					if ( $allMatches ) {
+						$log->info( "Audit - Test Run " . $runCounter->getCount() . " - All fields match");
+					}
+					else {
+						$log->info( "Audit - Test Run " . $runCounter->getCount() . " - Mismatch found!");
+					}
+				}
+				else $log->info( $runCounter->getCount() . " - Did not find a match");
+
+				$results = print_r($metadataInstance, true);
+
+				$storeFile = './data/metadataRecord-' . $runCounter->getPaddedCount() . '-' . date('Y-m-d-His') . '.txt';
+				file_put_contents($storeFile, $results);
+		
+				wait();
+
+				if ( $recordFound ) break; // we found the record, no need to loop through any more
+			}
+		}
+		if ( ! $recordFound ) {
+			$log->error($runCounter->getCount() . ' - Record was not found');
+		}
+	}
+	else {
+		$log->error( $runCounter->getCount() . ' - Could not perform audit - no values were submitted. Something went wrong!');
+	}
+}
+
+function getMetadataRecords () {
+
+	global $log;
+
+	$responseArray=NULL;
+
+	$url = $_ENV['HEAL_DATA_STUDY_URL'];
+
+	$request = curl_init ( $url ) ;
+	curl_setopt ( $request, CURLOPT_HTTPHEADER, array('Accept: application/json','Authorization: apiKey ' . $_ENV['CEDAR_API_TOKEN'] ) );
+	curl_setopt ( $request, CURLOPT_FOLLOWLOCATION, true ) ;
+	curl_setopt ( $request, CURLOPT_RETURNTRANSFER, true ) ;
+
+	curl_setopt($request, CURLOPT_SSL_VERIFYHOST, false);
+	curl_setopt($request, CURLOPT_SSL_VERIFYPEER, false);
+	curl_setopt( $request, CURLOPT_HTTPGET, true);
+
+	$response = curl_exec ($request) or die ("Unable to get $url") ; // Dies if the request doesn't work
+	$info = curl_getinfo($request);
+
+	if ( curl_errno($request) || 200 !== curl_getinfo($request, CURLINFO_HTTP_CODE))
+		throw new \Exception('HTTP Error experienced getting Metadata entry - ' . curl_getinfo($request, CURLINFO_HTTP_CODE));
+
+
+	curl_close($request); // close request and free up resources (good housekeeping)
+
+	// Convert the JSON data into a standard array, so we can more easily extract fields from it (Step 2)
+	$responseArray = json_decode($response,true);
+
+	return $responseArray;
+
+}
+
+function getMetadataResource($resource) {
+
+	$responseArray = NULL;
+
+	$id = $resource['@id'] ;
+	$schemaName = $resource['schema:name'];
+	if ( isset ( $id ) && isset( $schemaName )) {
+	
+		$url = "https://resource.metadatacenter.org/template-instances/" . urlencode($id) ;
+		//echo "using [$url]\n" ;
+
+		$request = curl_init ( $url ) ;
+		curl_setopt ( $request, CURLOPT_HTTPHEADER, array('Accept: application/json','Authorization: apiKey ' . $_ENV['CEDAR_API_TOKEN'] ) );
+		curl_setopt ( $request, CURLOPT_FOLLOWLOCATION, true ) ;
+		curl_setopt ( $request, CURLOPT_RETURNTRANSFER, true ) ;
+
+		curl_setopt($request, CURLOPT_SSL_VERIFYHOST, false);
+		curl_setopt($request, CURLOPT_SSL_VERIFYPEER, false);
+		curl_setopt( $request, CURLOPT_HTTPGET, true);
+
+		$response = curl_exec ($request) or die ("Unable to get $url") ; // Dies if the request doesn't work
+		$info = curl_getinfo($request);
+
+		if ( curl_errno($request) || 200 !== curl_getinfo($request, CURLINFO_HTTP_CODE))
+			throw new \Exception('HTTP Error experienced getting Metadata Resource - ' . curl_getinfo($request, CURLINFO_HTTP_CODE));
+
+		curl_close($request); // close request and free up resources (good housekeeping)
+		
+		$responseArray = json_decode($response,true);
+	}
+	return $responseArray;
+
+}
+
+function compareFields ( $metadataInstance, $valuesSubmitted) {
+	$allMatching = FALSE;
+
+	$apiStudyName = $metadataInstance['Minimal Info']['study_name']['@value'];
+	$submittedStudyName = $valuesSubmitted['Study Title or Name'];
+
+	if (
+		compareField ( 'Study Description or Abstract',
+						$metadataInstance['Minimal Info']['study_description']['@value'],
+						$valuesSubmitted['Study Description or Abstract'] ) &&
+		compareField ( 'Study Nickname or Alternative Title',
+						$metadataInstance['Minimal Info']['study_nickname']['@value'],
+						$valuesSubmitted['Study Nickname or Alternative Title']) &&
+		compareField ( 'NIH Application ID',
+						$metadataInstance['Metadata Location Updated']['Metadata Location - Details']['nih_application_id']['@value'],
+						$valuesSubmitted['NIH Application ID']) &&
+		compareField ( 'NIH RePORTER Link',
+						$metadataInstance['Metadata Location Updated']['Metadata Location - Details']['nih_reporter_link']['@id'],
+						$valuesSubmitted['NIH RePORTER Link']) &&
+		compareField ( 'ClinicalTrials.gov Study ID',
+						$metadataInstance['Metadata Location Updated']['Metadata Location - Details']['clinical_trials_study_id']['@value'],
+						$valuesSubmitted['ClinicalTrials.gov Study ID']) &&
+		compareField ( 'Name of Repository',
+						$metadataInstance['Metadata Location Updated']['Data Repositories'][0]['repository_name']['@value'],
+						$valuesSubmitted['Name of Repository']) &&
+		compareField ('Study ID assigned by Repository',
+						$metadataInstance['Metadata Location Updated']['Data Repositories'][0]['repository_study_ID']['@value'],
+						$valuesSubmitted['Study ID assigned by Repository']) &&
+		compareField ( 'Repository-branded Study Persistent Identifier',
+						$metadataInstance['Metadata Location Updated']['Data Repositories'][0]['repository_persistent_ID']['@value'],
+						$valuesSubmitted['Repository-branded Study Persistent Identifier']) &&
+		compareField ( 'Study citation at Repository',
+						$metadataInstance['Metadata Location Updated']['Data Repositories'][0]['repository_citation']['@value'],
+						$valuesSubmitted['Study citation at Repository']) &&
+		compareField ( 'CEDAR Study-level Metadata Template Instance ID',
+						$metadataInstance['Metadata Location Updated']['cedar_study_level_metadata_template_instance_ID']['@value'],
+						$valuesSubmitted['CEDAR Study-level Metadata Template Instance ID']) &&
+		compareField ( 'Other Study-Associated Websites',
+						$metadataInstance['Metadata Location Updated']['other_study_websites'][0]['@id'],
+						$valuesSubmitted['Other Study-Associated Websites']) &&
+		compareField ( 'Name of the study group or collection(s) to which this study belongs',
+						$metadataInstance['Citation']['study_collections'][0]['@value'],
+						$valuesSubmitted['Name of the study group or collection(s) to which this study belongs']) &&
+		compareField ( 'Funder or Grant Agency Name',
+						$metadataInstance['Citation']['Funding'][0]['funder_name'][0]['@value'],
+						$valuesSubmitted['Funder or Grant Agency Name']) &&
+		compareField ( 'Funder or Grant Agency Abbreviation or Acronym',
+						$metadataInstance['Citation']['Funding'][0]['funder_abbreviation'][0]['@value'],
+						$valuesSubmitted['Funder or Grant Agency Abbreviation or Acronym']) &&
+		compareField ( 'Funding or Grant Award ID',
+						$metadataInstance['Citation']['Funding'][0]['funding_award_id']['@value'],
+						$valuesSubmitted['Funding or Grant Award ID']) &&
+		compareField ( 'Funding or Grant Award Name',
+						$metadataInstance['Citation']['Funding'][0]['funding_award_name']['@value'],
+						$valuesSubmitted['Funding or Grant Award Name']) &&
+		compareField ( 'Investigator First Name',
+						$metadataInstance['Citation']['Investigators'][0]['investigator_first_name']['@value'],
+						$valuesSubmitted['Investigator First Name']) &&
+		compareField ( 'Investigator Middle Initial',
+						$metadataInstance['Citation']['Investigators'][0]['investigator_middle_initial']['@value'],
+						$valuesSubmitted['Investigator Middle Initial']) &&
+		compareField ( 'Investigator Last Name',
+						$metadataInstance['Citation']['Investigators'][0]['investigator_last_name']['@value'],
+						$valuesSubmitted['Investigator Last Name']) &&
+		compareField ( 'Investigator Institutional Affiliation',
+						$metadataInstance['Citation']['Investigators'][0]['investigator_affiliation']['@value'],
+						$valuesSubmitted['Investigator Institutional Affiliation']) &&
+		compareField ( 'Identifier Value',
+						$metadataInstance['Citation']['Investigators'][0]['Investigator Identifiers'][0]['investigator_ID_value']['@value'],
+						$valuesSubmitted['Identifier Value']) &&
+		compareField ( 'Contact First Name',
+						$metadataInstance['*Contacts and Registrants']['Contacts']['contact_first_name']['@value'],
+						$valuesSubmitted['Contact First Name']) &&
+		compareField ( 'Contact Middle Initial', 
+						$metadataInstance['*Contacts and Registrants']['Contacts']['contact_middle_initial']['@value'],
+						$valuesSubmitted['Contact Middle Initial']) &&
+		compareField ( 'Contact Last Name',
+						$metadataInstance['*Contacts and Registrants']['Contacts']['contact_last_name']['@value'],
+						$valuesSubmitted['Contact Last Name']) &&
+		compareField ( 'Contact Affiliation',
+						$metadataInstance['*Contacts and Registrants']['Contacts']['contact_affiliation']['@value'],
+						$valuesSubmitted['Contact Affiliation']) &&
+		compareField ( 'Contact Email',
+						$metadataInstance['*Contacts and Registrants']['Contacts']['contact-email']['@value'],
+						$valuesSubmitted['Contact Email']) &&
+		compareField ( 'Registrant First Name',
+						$metadataInstance['*Contacts and Registrants']['Registrants']['registrant_first_name']['@value'],
+						$valuesSubmitted['Registrant First Name']) &&
+		compareField ( 'Registrant Middle Initial',
+						$metadataInstance['*Contacts and Registrants']['Registrants']['registrant_middle_initial']['@value'],
+						$valuesSubmitted['Registrant Middle Initial']) &&
+		compareField ( 'Registrant Last Name',
+						$metadataInstance['*Contacts and Registrants']['Registrants']['registrant_last_name']['@value'],
+						$valuesSubmitted['Registrant Last Name']) &&
+		compareField ( 'Registrant Affiliation',
+						$metadataInstance['*Contacts and Registrants']['Registrants']['registrant_affiliation']['@value'],
+						$valuesSubmitted['Registrant Affiliation']) &&
+		compareField ( 'Registrant Email',
+						$metadataInstance['*Contacts and Registrants']['Registrants']['registrant_email']['@value'],
+						$valuesSubmitted['Registrant Email']) &&
+		compareField ( 'Primary Publications DOI',
+						$metadataInstance['Findings']['primary_publications'][0]['@value'],
+						$valuesSubmitted['Primary Publications DOI'] ) &&
+		compareField ( 'Primary Study Findings',
+						$metadataInstance['Findings']['primary_study_findings'][0]['@value'],
+						$valuesSubmitted['Primary Study Findings'])	&&				
+		compareField ( 'Secondary Publications DOI',
+						$metadataInstance['Findings']['secondary_publications'][0]['@value'],
+						$valuesSubmitted['Secondary Publications DOI'] ) &&
+		compareDateField ( 'Date when first data will be collected/produced (Anticipated)',
+						$metadataInstance['Data Availability']['data_collection_start_date']['@value'],
+						$valuesSubmitted['Date when first data will be collected/produced (Anticipated)']) &&
+		compareDateField ( 'Date when last data will be collected/produced (Anticipated)',
+						$metadataInstance['Data Availability']['data_collection_finish_date']['@value'],
+						$valuesSubmitted['Date when last data will be collected/produced (Anticipated)']) &&
+		compareDateField ( 'Date when first data will be released (Anticipated)',
+						$metadataInstance['Data Availability']['data_release_start_date']['@value'],
+						$valuesSubmitted['Date when first data will be released (Anticipated)']) &&
+		compareDateField ( 'Date when last data will be released (Anticipated)',
+						$metadataInstance['Data Availability']['data_release_finish_date']['@value'],
+						$valuesSubmitted['Date when last data will be released (Anticipated)']) &&
+		compareField ( 'Human Subject Data - Expected Number of the Unit of Collection',
+						$metadataInstance['Data']['subject_data_unit_of_collection_expected_number']['@value'],
+						$valuesSubmitted['Human Subject Data - Expected Number of the Unit of Collection']) &&
+		compareField ( 'Human Subject Data - Expected Number of the Unit of Analysis',
+						$metadataInstance['Data']['subject_data_unit_of_analysis_expected_number']['@value'],
+						$valuesSubmitted['Human Subject Data - Expected Number of the Unit of Analysis'])
+		)
+		$allMatching = TRUE;
+
+	return $allMatching;
+}
+
+function compareField ( $label, $apiField, $submittedField ) {
+
+	global $log;
+
+	$returnMatching = FALSE;
+
+	$log->debug('Comparing ' . $label );
+
+	if ( isset($submittedField )) {
+		if ( $submittedField != $apiField ) {
+			$log->error($label . " field does not match [Submitted '" . $submittedField . "', Value Retrieved '" . $apiField ."')");
+		}
+		else
+			$returnMatching = TRUE;
+	}
+
+	return $returnMatching;
+
+}
+
+function compareDateField ( $label, $apiField, $submittedField ) {
+	global $log;
+
+	$returnMatching = FALSE;
+
+	$log->debug('Comparing ' . $label );
+
+	if (isset($submittedField)) {
+		if ( isset($apiField) ) {
+				$submittedDate = \DateTime::createFromFormat('m/d/Y', $submittedField);
+				$apiDate = \DateTime::createFromFormat('Y-m-d', $apiField);
+				if ( $submittedDate == $apiDate)
+					$returnMatching = TRUE;
+				else
+					$log->error($label . " Datefield does not match [Submitted '" . $submittedDate->format('Y-m-d') . "', Value Retrieved '" . $apiDate->format('Y-m-d') ."')");
+		}
+	}
+	return $returnMatching;
 }
 
 
@@ -230,7 +539,10 @@ $timeEnd = NULL;
 $log = new Logger( SCRIPT_NAME );
 $log->pushHandler ( new StreamHandler( LOG_FILE ));
 
-$log->info( SCRIPT_NAME . ' STARTING');
+$performanceLog = new Logger ( SCRIPT_NAME . ' - performance');
+$performanceLog->pushHandler ( new StreamHandler ( PERFORMANCE_LOG_FILE));
+
+$performanceLog->info( SCRIPT_NAME . ' STARTING');
 
 $driver = new ChromeDriver(URL_CHROME_DRIVER, null, URL_BASE );
 $mink = new Mink(array(
@@ -246,6 +558,8 @@ $numberOfMetadataEntitiesToPopulate = DEFAULT_NUMBER_OF_METADATA_ENTRIES_TO_POPU
 $dotEnv = Dotenv\Dotenv::createImmutable(__DIR__);
 $dotEnv->load();
 
+$runCounter = new RunCounter();
+
 try {
 
 	$log->info("Attempting to populate $numberOfMetadataEntitiesToPopulate HEAL Study Metadata entities");
@@ -258,17 +572,19 @@ try {
 
 	cedarLogin(); // Login
 
-	$valuesEnteredFile = VALUES_FILE_PREFIX . date('Y-m-d-Hms') . VALUES_FILE_SUFFIX;
-
 	for ( ; $populateCount < $numberOfMetadataEntitiesToPopulate; $populateCount++) {
 		// Navigate to Dashboard
 		$session->visit('https://cedar.metadatacenter.org/dashboard?sharing=shared-with-me'); wait();
 		accessHealStudy(); // Navigate to the Heal Study Populate page from the Dashboard
-		populateHealthStudyMetadataEntity($populateCount, $valuesEnteredFile); // return an array of everything entered
+		$runCounter->incrementCount();
+		$valuesEnteredFile = VALUES_FILE_PREFIX . $runCounter->getPaddedCount() . '-' . date('Y-m-d-Hms') . VALUES_FILE_SUFFIX;
+		$valuesSubmitted = populateHealthStudyMetadataEntity($populateCount, $valuesEnteredFile); // return an array of everything entered
+		auditValuesSubmitted ( $valuesSubmitted );
 	}
 }
 catch (Exception $exception ) {
 	$log->error( $exception->getMessage() . ' after ' . $populateCount . ' populations' );
+	$performanceLog->error($exception->getMessage() . ' after ' . $populateCount . ' populations' );
 }
 finally {
 
@@ -277,11 +593,11 @@ finally {
 		cedarLogout(); // regardless of if we have an error condition, let's try to logout (if that doesn't work, we don't care)
 
 	$timeEnd = time();
-	$log->info( SCRIPT_NAME . ' ENDING after ' . $populateCount . ' populations.' .
+	$performanceLog->info( SCRIPT_NAME . ' ENDING after ' . $populateCount . ' populations.' .
 				' Processing start: ' . date('Y-m-d H:i:s', $timeStart ) .
 				', end: ' . date('Y-m-d H:i:s', $timeEnd) .
 				', elapsed duration: ' . ($timeEnd - $timeStart) . ' seconds' );
-	
+
 	if ( $populateCount === $numberOfMetadataEntitiesToPopulate ) {
 		$log->info('Expected number of population cycles was detected (' . $populateCount . ')');
 	}
