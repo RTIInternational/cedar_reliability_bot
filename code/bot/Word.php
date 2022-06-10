@@ -34,6 +34,14 @@ class Word {
         return "$name@$domain.org";
     }
 
+    function getRandomId() {
+        $prefix = rand(1,999);
+        $middle = rand(1,999);
+        $suffix = rand(1,999);
+        $number = sprintf('%03d', $prefix) . '-' . sprintf('%03d', $middle) . '-' . sprintf('%03d', $suffix);
+        return $number;
+    }
+
 }
 
 ?>
