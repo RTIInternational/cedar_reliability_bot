@@ -1,4 +1,4 @@
 #!/bin/bash
 touch cedarbot.log
 php cedarbot.php &
-tail -f cedarbot.log
+tail -f ./logs/cedarbot.log
