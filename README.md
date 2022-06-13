@@ -24,7 +24,7 @@ After the installation, you should be able to run `php --version` from the comma
 TBD, not aware of any extensions needed for php. Will verify later, when I attempt to run this on Windows. Ideally, we should find someone who has not setup PHP and have them walk through and document the steps they needed to perform to successfully get the bot running.
 
 ### Composer
-[Composer][https://en.wikipedia.org/wiki/Composer_(software) is an application level dependency manager for the PHP programming language. In short, it is used to independently download all of the libraries that your application needs to run successfully. By using Composer, you decouple yourself from the worry and effort associated with individually downloading and making sure you are using the correct libraries your program needs.
+[Composer](https://en.wikipedia.org/wiki/Composer_(software)) is an application level dependency manager for the PHP programming language. In short, it is used to independently download all of the libraries that your application needs to run successfully. By using Composer, you decouple yourself from the worry and effort associated with individually downloading and making sure you are using the correct libraries your program needs.
 
 Follow the instructions for your operating system to install `composer`.
 
