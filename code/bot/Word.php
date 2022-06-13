@@ -18,9 +18,19 @@ class Word {
         return $randomText;
     }
 
+    public function getRandomCompoundWords( $numberOfWords=2) {
+        $returnWords = '';
+        for ($wordCount = 0 ; $wordCount < $numberOfWords; $wordCount++) {
+            if ( strlen($returnWords) > 0 ) $returnWords .= ' '; // add spacing
+            $returnWords .= $this->getRandomWord();
+
+        }
+        return $returnWords;
+    }
+
     public function getRandomUrl() {
         $randomWord = $this->getRandomWord();
-        return "https://www.$randomWord.org";
+        return strtolower("https://www.$randomWord.org");
     }
 
     public function getRandomNumber() {
@@ -31,7 +41,7 @@ class Word {
     public function getRandomEmail() {
         $name = $this->getRandomWord();
         $domain = $this->getRandomWord();
-        return "$name@$domain.org";
+        return strtolower("$name@$domain.org");
     }
 
     function getRandomId() {
