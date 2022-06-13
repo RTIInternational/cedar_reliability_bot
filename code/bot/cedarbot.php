@@ -35,7 +35,7 @@ use Monolog\Handler\StreamHandler;
 
 
 // TBD check if there is an actual wait condition for the browser driver
-function wait($seconds=2) {
+function wait($seconds=3) {
 	sleep($seconds);
 }
 
@@ -49,6 +49,8 @@ function cedarLogin() {
 
 	global $session, $log;
 
+	$log->debug('Logging in');
+
 	$loginUsername = $_ENV['LOGIN_USERNAME'];
 	$loginPassword = $_ENV['LOGIN_PASSWORD'];
 	if ( ! isset ( $loginUsername ) || ! isset ( $loginPassword) )
@@ -59,7 +61,7 @@ function cedarLogin() {
 	if ( !str_contains($session->getCurrentUrl(), '/dashboard' ) ) {
 		
 		$loginForm = $page->find('css','form');
-		if ( null === $loginForm )
+		if ( NULL == $loginForm )
 			throw new \Exception('Login form not found! Session may already be logged in');
 
 		$loginForm->fillField('username', $loginUsername );
@@ -67,10 +69,11 @@ function cedarLogin() {
 		wait();
 
 		$loginForm->submit();
+		$log->debug('Login submitted');
 		wait();
 	}
 	else
-		$log->info('Seems already logged in by the looks');
+		$log->info('Looks like we could already be logged in, so just proceeding.');
 }
 
 function cedarLogout() {
@@ -90,27 +93,36 @@ function cedarLogout() {
 
 function accessHealStudy() {
 
-	global $session;
-	
+	global $session, $log;
+
+	$log->debug('Accessing Heal Study from Dashboard');
+
 	// Folder DIVS - this one gives us access to the UPDATED HEAL Study Core Metadata
+	$healStudyDiv = NULL;
 	$divs = $session->getPage()->findAll('css','div[ng-if="!dc.isFolder(resource)"]');
-	$healStudyDiv = null;
-	if ( null == $divs )
+	if ( NULL == $divs )
 		throw new \Exception('Unable to access any non-resource folders from Dashboard');
 	foreach ( $divs as $div ) {
 		$healStudyDiv = $div; // just grab first one
 		break;
 	}
-	if ( null === $healStudyDiv )
+	if ( NULL === $healStudyDiv )
 		throw new \Exception('Unable to access UPDATED Heal Study Core Metadata tile from Dashboard');
 
 	// Click the Populate option
 	$button = $healStudyDiv->find('css','button') ;
-	if ( null === $button ) throw new \Exception('Populate option could not be found for UPDATED Heal Study Core Metadata folder'); // flag this
+	if ( NULL === $button ) throw new \Exception('Populate option could not be found for UPDATED Heal Study Core Metadata folder'); // flag this
 
 	$ngClick = $button->getAttribute('ng-click');
+	if ( NULL == $ngClick ) {
+		throw new \Exception("Unable to get to populate option from UPDATED Heal Study Core Metadata");
+	}
 	if ( "dc.goToResource(resource, 'populate')" === $ngClick) {
-		$button->click();
+		$button->click(); // does this return anything - check TBD and put a check and error log here
+		$log->debug('Clicked populate button');
+	}
+	else {
+		$log->error('Could not find Populate option');
 	}
 	wait();
 }
@@ -119,19 +131,22 @@ function populateQuestion ( $fieldSection, &$valuesSubmitted ) {
 
 	global $fields, $log, $runCounter;
 
-	$log->info('Processing for ' . $fieldSection->getText() );
+	//$log->info('Processing for ' . $fieldSection->getText() );
 
 	$word = new Word();
 
 	$question = $fieldSection->find('css','div[ng-click="toggleActive(index)"]');
-	if ($question === null) {
+	if ( NULL == $question ) {
 		throw new \Exception('Question not found.');
 	}
 	$questionText = $question->getText() ;
 	$question->click(); // opens up field for text entry
-	wait(3);
+	wait();
 
 	$form = $fieldSection->find('css','form');
+	if ( NULL == $form) {
+		throw new \Exception('Was not able get form');
+	}
 
 	if ( array_key_exists($questionText, $fields)) {
 
@@ -141,7 +156,6 @@ function populateQuestion ( $fieldSection, &$valuesSubmitted ) {
 		$fieldName = $inputField->getAttribute('name');
 
 		$value = NULL;
-
 
 		if ( $fieldSpecification[0] !== NULL && $fieldSpecification[1] !== NULL ) {
 			if ( $fieldSpecification[0] === TEXTFIELD) {
@@ -171,13 +185,12 @@ function populateQuestion ( $fieldSection, &$valuesSubmitted ) {
 				$value = $word->getRandomId();
 				$form->fillField('textField',$value);
 			}
-			wait(5);
+			wait();
 		}
-		//array_push($valuesSubmitted, $value); // just blindly record values submitted in order
 		$valuesSubmitted[$questionText] = $value; // store into array using question text as key
 	}
 	else {
-		throw new \Exception('Field for $questionText was not found in web form');
+		throw new \Exception("Exception caught populating  for [$questionText]");
 	}
 }
 
@@ -191,6 +204,8 @@ function populateHealthStudyMetadataEntity($populateCount, $valuesEnteredFile ) 
 
 	global $session, $log, $runCounter;
 
+	$log->debug('Populating Questions');
+
 	$valuesSubmitted = array();
 
 	// Progress through the fields and enter values
@@ -203,13 +218,19 @@ function populateHealthStudyMetadataEntity($populateCount, $valuesEnteredFile ) 
 	//
 	$editActionsDiv = $session->getPage()->find('css','div[class="edit-actions"]');
 	$dateSaved = NULL;
-	if ( null !== $editActionsDiv) {
+	if ( NULL != $editActionsDiv) {
 		$saveButton = $editActionsDiv->find('css','button[id="button-save-metadata"]');
-		if ( null !== $saveButton) {
+		if ( NULL != $saveButton) {
 			$log->info('Saving Metadata');
 			$saveButton->click();
 			$dateSaved = date('Y/m/d H:m:s');
 		}
+		else {
+			$log->error('Could not find Save Button');
+		}
+	}
+	else {
+		$log->error('Could not find Edit Actions');
 	}
 	$valuesSubmitted['saveDate'] = $dateSaved; // added so we can track down the record when we call the API to retrieve records
 
@@ -220,9 +241,8 @@ function populateHealthStudyMetadataEntity($populateCount, $valuesEnteredFile ) 
 		fwrite($filePointer, $key . VALUES_FILE_FIELD_DELIMITER);
 	}
 	fwrite($filePointer, "\n" );
-	//fwrite($filePointer, $runCounter->getCount() . ',' . $populateCount . VALUES_FILE_FIELD_DELIMITER . $dateSaved . VALUES_FILE_FIELD_DELIMITER );
 	foreach ( $valuesSubmitted as $key => $value ) {
-		if ( $value == NULL ) $value = '';
+		if ( NULL == $value  ) $value = '';
 		fwrite($filePointer, $value . VALUES_FILE_FIELD_DELIMITER);
 	}
 	fwrite ( $filePointer, "\n" );
@@ -239,6 +259,8 @@ function auditValuesSubmitted ($valuesSubmitted=NULL ) {
 
 	global $log, $runCounter;
 
+	$log->debug('Starting Audit');
+
 	if ( isset ( $valuesSubmitted )) {
 
 		$records = getMetadataRecords();
@@ -251,7 +273,7 @@ function auditValuesSubmitted ($valuesSubmitted=NULL ) {
 
 				$apiStudyName = $metadataInstance['Minimal Info']['study_name']['@value'];
 				$submittedStudyName = $valuesSubmitted['Study Title or Name'];
-				$log->info('Comparing ' . $apiStudyName . ' to ' . $submittedStudyName );
+				$log->debug('Comparing ' . $apiStudyName . ' to ' . $submittedStudyName );
 
 				if($apiStudyName === $submittedStudyName) {
 					$recordFound = TRUE;
@@ -539,6 +561,8 @@ $timeEnd = NULL;
 $log = new Logger( SCRIPT_NAME );
 $log->pushHandler ( new StreamHandler( LOG_FILE ));
 
+$log->info( SCRIPT_NAME . ' started');
+
 $performanceLog = new Logger ( SCRIPT_NAME . ' - performance');
 $performanceLog->pushHandler ( new StreamHandler ( PERFORMANCE_LOG_FILE));
 
@@ -574,12 +598,15 @@ try {
 
 	for ( ; $populateCount < $numberOfMetadataEntitiesToPopulate; $populateCount++) {
 		// Navigate to Dashboard
-		$session->visit('https://cedar.metadatacenter.org/dashboard?sharing=shared-with-me'); wait();
+		//$session->visit('https://cedar.metadatacenter.org/dashboard?sharing=shared-with-me'); wait(5);
+		$session->visit('https://cedar.metadatacenter.org/dashboard?sharing=shared-with-me&folderId=https:%2F%2Frepo.metadatacenter.org%2Ffolders%2F34e600fa-19a2-4e63-8270-7066b3ab7f71');
+		wait(5);
 		accessHealStudy(); // Navigate to the Heal Study Populate page from the Dashboard
 		$runCounter->incrementCount();
 		$valuesEnteredFile = VALUES_FILE_PREFIX . $runCounter->getPaddedCount() . '-' . date('Y-m-d-Hms') . VALUES_FILE_SUFFIX;
 		$valuesSubmitted = populateHealthStudyMetadataEntity($populateCount, $valuesEnteredFile); // return an array of everything entered
 		auditValuesSubmitted ( $valuesSubmitted );
+		wait();
 	}
 }
 catch (Exception $exception ) {
