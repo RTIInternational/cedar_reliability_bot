@@ -155,13 +155,23 @@ function populateQuestion ( $fieldSection, &$valuesSubmitted ) {
 		$inputField = $form->find('css','input');
 		$fieldName = $inputField->getAttribute('name');
 
+		$log->debug('Populating question [' . $questionText . ']' );
+
 		$value = NULL;
 
 		if ( $fieldSpecification[0] !== NULL && $fieldSpecification[1] !== NULL ) {
 			if ( $fieldSpecification[0] === TEXTFIELD) {
-				$value = $word->getRandomWord();
-				if ( 'Study Title or Name' === $questionText ) // add a count to study title
+				if ( 'Study Title or Name' === $questionText ) {
+					$value = $word->getRandomCompoundWords(3); // Get a nice longer title
+					// add a count to study title to cross reference it to the sets of data submitted and retrieved via API
 					$value .= ' [' . $runCounter->getPaddedCount() . ']';
+				}
+				else if ( 'Study Description or Abstract' == $questionText ) {
+					$numberOfWords = rand(1, 30); // just enter random number of words (up to the max limit)
+					$value = $word->getRandomCompoundWords($numberOfWords);
+				}
+				else
+					$value = $word->getRandomWord();
 				$form->fillField('textField', $value);
 			}
 			else if ( $fieldSpecification[0] == URL) {
@@ -184,6 +194,30 @@ function populateQuestion ( $fieldSection, &$valuesSubmitted ) {
 			else if ( $fieldSpecification[0] == ID) {
 				$value = $word->getRandomId();
 				$form->fillField('textField',$value);
+			}
+			else if ( $fieldSpecification[0] == RADIO ) {
+				//$log->debug('Got radio button ' . $questionText );
+				$radios = $form->findAll('css','input[type="radio"]');
+				$value = '';
+				if ( NULL != $radios ) { // just make a random choice
+					$numberOfOptions = count($radios);
+					$randomChoiceClick = rand(1, $numberOfOptions);
+					//$log->debug('there are ' . $numberOfOptions . ' choices and we will choose ' . $randomChoiceClick);
+					$choiceNumber = 1;
+					foreach ( $radios as $radio ) {
+						if ( NULL != $radio ) {
+							//$log->debug('Considering whether to choose option ' . $choiceNumber);
+							if ( $choiceNumber == $randomChoiceClick ) {
+								$radio->click();
+								$value = $radio->getAttribute('value');
+								//$log->debug('Made random choice - ' . $choiceNumber . ' and we are recording the submitted value as [' . $value . ']');
+								wait();
+								break; // stop looping through, we made our choice
+							}
+						}
+						$choiceNumber++;
+					}
+				}
 			}
 			wait();
 		}
@@ -413,6 +447,12 @@ function compareFields ( $metadataInstance, $valuesSubmitted) {
 		compareField ( 'Other Study-Associated Websites',
 						$metadataInstance['Metadata Location Updated']['other_study_websites'][0]['@id'],
 						$valuesSubmitted['Other Study-Associated Websites']) &&
+		compareField ( 'Is this study HEAL-funded?',
+						$metadataInstance['Citation']['heal_funded_status']['@value'],
+						$valuesSubmitted['Is this study HEAL-funded?'] ) &&
+		compareField ( 'Does this study belong to a study group or collection?',
+						$metadataInstance['Citation']['study_collection_status']['@value'],
+						$valuesSubmitted['Does this study belong to a study group or collection?'] ) &&
 		compareField ( 'Name of the study group or collection(s) to which this study belongs',
 						$metadataInstance['Citation']['study_collections'][0]['@value'],
 						$valuesSubmitted['Name of the study group or collection(s) to which this study belongs']) &&
@@ -473,6 +513,9 @@ function compareFields ( $metadataInstance, $valuesSubmitted) {
 		compareField ( 'Registrant Email',
 						$metadataInstance['*Contacts and Registrants']['Registrants']['registrant_email']['@value'],
 						$valuesSubmitted['Registrant Email']) &&
+		compareField ( 'Will the study collect or produce data?',
+						$metadataInstance['Data Availability']['produce_data']['@value'],
+						$valuesSubmitted['Will the study collect or produce data?']) &&
 		compareField ( 'Primary Publications DOI',
 						$metadataInstance['Findings']['primary_publications'][0]['@value'],
 						$valuesSubmitted['Primary Publications DOI'] ) &&
@@ -494,6 +537,9 @@ function compareFields ( $metadataInstance, $valuesSubmitted) {
 		compareDateField ( 'Date when last data will be released (Anticipated)',
 						$metadataInstance['Data Availability']['data_release_finish_date']['@value'],
 						$valuesSubmitted['Date when last data will be released (Anticipated)']) &&
+		compareField ( 'Will study produce shareable products other than data?',
+						$metadataInstance['Data Availability']['produce_other']['@value'],
+						$valuesSubmitted['Will study produce shareable products other than data?'] ) &&
 		compareField ( 'Human Subject Data - Expected Number of the Unit of Collection',
 						$metadataInstance['Data']['subject_data_unit_of_collection_expected_number']['@value'],
 						$valuesSubmitted['Human Subject Data - Expected Number of the Unit of Collection']) &&
