@@ -7,6 +7,7 @@ define ('URL', 4);
 define ('NUMERIC', 5);
 define ('DATETIME', 6);
 define ('ID',7);
+define ('SELECT', 8);
 
 // Question Text and associated attributes
 $fields = array(
@@ -22,20 +23,20 @@ $fields = array(
     'Study citation at Repository' => array(TEXTFIELD,REQUIRED),
     'CEDAR Study-level Metadata Template Instance ID' => array(TEXTFIELD,REQUIRED),
     'Other Study-Associated Websites' => array(URL,REQUIRED),
-    'Is this study HEAL-funded?' => array(RADIO,NULL),
-    'Does this study belong to a study group or collection?' => array(RADIO,NULL),
+    'Is this study HEAL-funded?' => array(RADIO,REQUIRED),
+    'Does this study belong to a study group or collection?' => array(RADIO,REQUIRED),
     'Name of the study group or collection(s) to which this study belongs' => array(TEXTFIELD,REQUIRED),
     'Funder or Grant Agency Name' => array(TEXTFIELD,REQUIRED),
     'Funder or Grant Agency Abbreviation or Acronym' => array(TEXTFIELD,REQUIRED),
-    'Funder or Grant Agency Type' => array(NULL,NULL),
-    'Funder Geographic Reach' => array(NULL,NULL),
+    'Funder or Grant Agency Type' => array(SELECT,NULL), // SELECT governmental, non-governmental
+    'Funder Geographic Reach' => array(SELECT,NULL), // SELECT
     'Funding or Grant Award ID' => array(TEXTFIELD,REQUIRED),
     'Funding or Grant Award Name' => array(TEXTFIELD,REQUIRED),
     'Investigator First Name' => array(TEXTFIELD,REQUIRED),
     'Investigator Middle Initial' => array(TEXTFIELD,REQUIRED),
     'Investigator Last Name' => array(TEXTFIELD,REQUIRED),
     'Investigator Institutional Affiliation' => array(TEXTFIELD,REQUIRED),
-    'Identifier Type' => array(NULL,NULL),
+    'Identifier Type' => array(SELECT,NULL), // SELECT - including doi
     'Identifier Value' => array(TEXTFIELD,REQUIRED),
     'Contact First Name' => array(TEXTFIELD,REQUIRED),
     'Contact Middle Initial' => array(TEXTFIELD,REQUIRED),
@@ -47,26 +48,26 @@ $fields = array(
     'Registrant Last Name' => array(TEXTFIELD,REQUIRED),
     'Registrant Affiliation' => array(TEXTFIELD,REQUIRED),
     'Registrant Email' => array(EMAIL,REQUIRED),
-    'Will the study collect or produce data?' => array(RADIO,NULL),
-    'Will the study make data available?' => array(NULL,NULL),
-    'Will available data have restrictions on access?' => array(NULL,NULL),
-    'Has data collection/production started?' => array(NULL,NULL),
-    'Has data release started?' => array(NULL,NULL),
+    'Will the study collect or produce data?' => array(RADIO,REQUIRED),
+    'Will the study make data available?' => array(SELECT,NULL), // SELECT none, some or all
+    'Will available data have restrictions on access?' => array(SELECT,NULL), // SELECT none, some or all
+    'Has data collection/production started?' => array(SELECT,NULL), // SELECT not started, started, or finished
+    'Has data release started?' => array(SELECT,NULL),
     'Date when first data will be collected/produced (Anticipated)' => array(DATETIME,REQUIRED),
     'Date when last data will be collected/produced (Anticipated)' => array(DATETIME,REQUIRED),
     'Date when first data will be released (Anticipated)' => array(DATETIME,REQUIRED),
     'Date when last data will be released (Anticipated)' => array(DATETIME,REQUIRED),
-    'Will study produce shareable products other than data?' => array(RADIO,NULL),
+    'Will study produce shareable products other than data?' => array(RADIO,REQUIRED),
     'Primary Publications DOI' => array(TEXTFIELD,REQUIRED),
     'Primary Study Findings' => array(TEXTFIELD,REQUIRED),
     'Secondary Publications DOI' => array(TEXTFIELD,REQUIRED),
-    'Study Translational Focus' => array(NULL,NULL),
-    'Types of determinants/mechanisms the study is investigating' => array(NULL,NULL),
-    'Category or Type/Stage of Study Research' => array(NULL,NULL),
-    'Is the study conducting primary or secondary research?' => array(NULL,NULL),
-    'Is the study conducting observational or experimental research?' => array(NULL,NULL),
-    'Study Subject Type' => array(NULL,NULL),
-    'Study Type/Design' => array(NULL,NULL),
+    'Study Translational Focus' => array(SELECT,NULL),
+    'Types of determinants/mechanisms the study is investigating' => array(SELECT,NULL),
+    'Category or Type/Stage of Study Research' => array(SELECT,NULL),
+    'Is the study conducting primary or secondary research?' => array(SELECT,NULL),
+    'Is the study conducting observational or experimental research?' => array(SELECT,NULL),
+    'Study Subject Type' => array(SELECT,NULL),
+    'Study Type/Design' => array(SELECT,NULL),
     'Treatment Investigation Stage or Type' => array(NULL,NULL),
     'Treatment Mode' => array(NULL,NULL),
     'Treatment Novelty' => array(NULL,NULL),
