@@ -255,6 +255,8 @@ function populateHealthStudyMetadataEntity($populateCount, $valuesEnteredFile ) 
 	if ( NULL != $editActionsDiv) {
 		$saveButton = $editActionsDiv->find('css','button[id="button-save-metadata"]');
 		if ( NULL != $saveButton) {
+			$log->info("Waiting " . WAIT_SECONDS_BEFORE_SUBMIT . " seconds before doing Save");
+			wait(WAIT_SECONDS_BEFORE_SUBMIT);
 			$log->info('Saving Metadata');
 			$saveButton->click();
 			$dateSaved = date('Y/m/d H:m:s');
@@ -644,8 +646,8 @@ try {
 
 	for ( ; $populateCount < $numberOfMetadataEntitiesToPopulate; $populateCount++) {
 		// Navigate to Dashboard
-		//$session->visit('https://cedar.metadatacenter.org/dashboard?sharing=shared-with-me'); wait(5);
-		$session->visit('https://cedar.metadatacenter.org/dashboard?sharing=shared-with-me&folderId=https:%2F%2Frepo.metadatacenter.org%2Ffolders%2F34e600fa-19a2-4e63-8270-7066b3ab7f71');
+		$session->visit($_ENV['HEAL_SHARED_WITH_ME_URL']); // set this in your .env
+		
 		wait(5);
 		accessHealStudy(); // Navigate to the Heal Study Populate page from the Dashboard
 		$runCounter->incrementCount();
