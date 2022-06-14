@@ -74,12 +74,14 @@ The Chrome Browser should appear on your screen, with an empty window (provided 
 1. Create a .env file in the `/code/bot` directory (if one doesn't already exist).
 2. Edit this file.
 3. Manually add new settings into this file.
-	i. LOGIN_USERNAME=<your CEDAR username/email>
-	ii. LOGIN_PASSWORD=<your CEDAR account password, sorry this is in plain-text>
+	i. LOGIN_USERNAME=`<your CEDAR username/email>`
+	ii. LOGIN_PASSWORD=`<your CEDAR account password, sorry this is in plain-text>`
 	iii. Your CEDAR API Token. To get this, login to CEDAR, and navigate to your profile. It is displayed on this page. Grab the KEY text string and place it in this line.
 	iv. Your HEAL DATA STUDY URL can be obtained by navigating to the Workspace in CEDAR (after login). Simply cut and paste this full URL into a single line for this setting.
 4. Save the contents of this file.
 5. In the `/code/bot` directory, create a directory `logs` and `data`. Progress and performance logs will be stored in the `logs` subdirectory. Data submitted and retrieved from the CEDAR API will be stored in the `data` directory.
+6. Additionally, you should review the contents of the `/code/bot/config.php` file.
+	i. For Windows, in particular, you may need to change the line `define ( 'URL_CHROME_DRIVER', 'http://0.0.0.0:9222'); ` to `http://localhost:9222`. If you change this file, make sure you save it.
 
 ### Linux (and maybe MacOS)
 Once you have Chrome running through the [above script](#running-chrome-as-a-browser-service), you can run the main script for the bot.
@@ -97,5 +99,3 @@ Once you have Chrome running through the [above script](#running-chrome-as-a-bro
 
 ### Progress checking (all operating systems)
 It should log outputs to the window as it runs. It actually logs program progress into `/code/bot/logs/cedarbot.log` which you can `tail -f` to watch new log entries appear (for Linux).
-
-
