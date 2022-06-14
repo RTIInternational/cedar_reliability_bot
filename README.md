@@ -2,7 +2,11 @@
 Project to assess CEDAR metadata form reliability for the HEAL Data Ecosystem.
 
 # Overview
-The [CEDAR Bot main program](/code/bot/cedarbot.php) ....
+The [CEDAR Bot main program](/code/bot/cedarbot.php) has been written in PHP, and harnesses the Mink and Chrome Drivers to control a browser in real-time and direct it to navigate to the CEDAR Metadata Repository and populate HEAL Study Data using the established template.
+
+`Mink` is a wrapper around popular frameworks such as `Selenium` and `Chrome Driver` to provide a more standard and flexible way of either doing browser emulation, or browser controlled interactions, or combinations of both (depending on your needs).
+
+The CEDAR Bot program can be edited with a standard text editor and changed as needed. Because it's PHP and directly parsed and ran at run-time, there is no need to compile this to a binary form. It can be edited and changed and repeatedly run following any change - without additional steps being needed.
 
 # Installation/Setup
 ## Initial requirements
@@ -50,7 +54,7 @@ You should see messages associated the composer. It should pull down all of the 
 ## Running Chrome as a browser service
 Before running the bot itself, you must run the Chrome Browser. It runs as a service to the bot, providing the browser needed to access and drive through CEDAR Metadata repository dashboard to successfully populate CEDAR records/entities. *This script must be running at all times when the bot is running.*
 
-### Linux (and maybe MacOS)
+### Linux (and maybe MacOS, needs to be verified)
 A script has been provided for this in `/code/bot`. This is the `/code/bot/run-chrome.sh` command.
 
 Open a command line window and run this Bash script.
@@ -77,13 +81,17 @@ The Chrome Browser should appear on your screen, with an empty window (provided 
 	i. LOGIN_USERNAME=`<your CEDAR username/email>`
 	ii. LOGIN_PASSWORD=`<your CEDAR account password, sorry this is in plain-text>`
 	iii. Your CEDAR API Token. To get this, login to CEDAR, and navigate to your profile. It is displayed on this page. Grab the KEY text string and place it in this line.
-	iv. Your HEAL DATA STUDY URL can be obtained by navigating to the Workspace in CEDAR (after login). Simply cut and paste this full URL into a single line for this setting.
+	iv. Your HEAL DATA STUDY URL can be obtained by navigating to the Workspace in CEDAR (after login). Simply copy and paste this full URL into a single line for this setting.
+	v. Your HEAL_SHARED_WITH_ME_URL can be obtained by clicking on the Shared with Me folder. After doing this, copy and paste the full URL into a single line for this setting.
 4. Save the contents of this file.
 5. In the `/code/bot` directory, create a directory `logs` and `data`. Progress and performance logs will be stored in the `logs` subdirectory. Data submitted and retrieved from the CEDAR API will be stored in the `data` directory.
 6. Additionally, you should review the contents of the `/code/bot/config.php` file.
 	i. For Windows, in particular, you may need to change the line `define ( 'URL_CHROME_DRIVER', 'http://0.0.0.0:9222'); ` to `http://localhost:9222`. If you change this file, make sure you save it.
+	ii. the line `define ( 'DEFAULT_NUMBER_OF_METADATA_ENTRIES_TO_POPULATE', 5);` also defines how many records/entities the bot will try to populate before quitting. This can be increased or decreased according to your preferences. It's suggested to change this to 1, for your first time verifying and operating the bot.
+	iii. The count for the number of runs performed is stored in the file `cedarbot-run-count.txt`. Edit this with a text file, if you want to reset this count back to 0. You must specify a numeric value only.
+	iv. There is a setting to delay the Save operation, after the form is populated. This is configured by adjusting the setting `WAIT_SECONDS_BEFORE_SUBMIT` in the `config.php` file.
 
-### Linux (and maybe MacOS)
+### Linux (and maybe MacOS, needs to be verified)
 Once you have Chrome running through the [above script](#running-chrome-as-a-browser-service), you can run the main script for the bot.
 This is located within `/code/bot` and it is the script called `/code/bot/run-bot.sh`.
 1. Open up a command line shell/window.
