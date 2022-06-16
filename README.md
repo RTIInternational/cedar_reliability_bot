@@ -69,7 +69,7 @@ The Chrome Browser should appear on your screen, with an empty window (provided 
 #### Running
 1. Open a new command-line window.
 2. Change directory to the location of your `/code/bot` installation.
-3. Within this directory, there is a DOS batch script, called `/code/bot/run-chrome.bat`. Type `run-chrome` and hit Enter.
+3. Within this directory, there is a DOS batch script, called `/code/bot/run-chrome.bat`. Type `run-chrome` and hit Enter. You may need to type `start run-chrome.bat`, if you find that `run-chrome` doesn't work.
 4. A blank Chrome browser window should appear.
 
 
@@ -102,8 +102,16 @@ This is located within `/code/bot` and it is the script called `/code/bot/run-bo
 Once you have Chrome running through the [above script](#running-chrome-as-a-browser-service), you can run the main script for the bot.
 1. Open a DOS command line shell/window.
 2. Change directory to the `/code/bot` directory location.
-3. Type the command `run-bot` and hit Enter.
+3. Type the command `run-bot` and hit Enter. You may need to type `start run-bot.bat`, if you find that `run-bot` by itself doesn't work.
 4. The program should start. You can check the `logs` subdirectory for progress log updates. They will be logged in real-time as the program progresses through.
 
 ### Progress checking (all operating systems)
-It should log outputs to the window as it runs. It actually logs program progress into `/code/bot/logs/cedarbot.log` which you can `tail -f` to watch new log entries appear (for Linux).
+It should log outputs to the window as it runs. It actually logs program progress into `/code/bot/logs/cedarbot.log`.
+### Linux (possibly MacOS)
+You should be able to see the log messages in real-time, by doing:
+1. `cd ./code/bot/logs` <Enter>
+2. `tail -f cedarbot.log` <Enter>
+
+### Windows
+Windows does not have a native command (that we're aware of) that does continuous logging. There are known utilities that you can get to do this.
+You can use programs like Notepad++ however, to open the log file. When you open the file, it will display a snapshot of the log file. Over time, particularly if you navigate away from Notepad++ and come back, it may prompt you to reload the latest log version (as it detects changes to this). If you anwswer Yes, it will reload the log file and you can navigate down to the bottom of the file to see the most current log messages.
