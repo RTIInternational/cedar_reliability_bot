@@ -1,0 +1,1 @@
+"c:\Program Files\Google\Chrome\Application\chrome.exe"  --remote-debugging-port=9222 --disable-extensions --user-data-dir="C:\Users\djackman\AppData\Local\Google\Chrome\User Data\Profile 3"
