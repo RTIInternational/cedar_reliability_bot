@@ -360,16 +360,19 @@ function getMetadataRecords () {
 	curl_setopt ( $request, CURLOPT_FOLLOWLOCATION, true ) ;
 	curl_setopt ( $request, CURLOPT_RETURNTRANSFER, true ) ;
 
-	curl_setopt($request, CURLOPT_SSL_VERIFYHOST, false);
+	curl_setopt($request, CURLOPT_SSL_VERIFYHOST, false); // TBD we shouldn't disable this - but we should have instructions for doing it properly over SSL - so fix this later
 	curl_setopt($request, CURLOPT_SSL_VERIFYPEER, false);
 	curl_setopt( $request, CURLOPT_HTTPGET, true);
 
-	$response = curl_exec ($request) or die ("Unable to get $url") ; // Dies if the request doesn't work
+	$response = curl_exec ($request);
+	if ( ! $response ) {
+		$log->error('Curl request to get record via CEDAR API did not work. Details are: ' . print_r(curl_info($request, true)));
+		throw new \Exception('Curl request to get records via CEDAR API did not work properly.')
+	}
 	$info = curl_getinfo($request);
 
 	if ( curl_errno($request) || 200 !== curl_getinfo($request, CURLINFO_HTTP_CODE))
 		throw new \Exception('HTTP Error experienced getting Metadata entry - ' . curl_getinfo($request, CURLINFO_HTTP_CODE));
-
 
 	curl_close($request); // close request and free up resources (good housekeeping)
 
