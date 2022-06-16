@@ -99,15 +99,20 @@ function accessHealStudy() {
 
 	// Folder DIVS - this one gives us access to the UPDATED HEAL Study Core Metadata
 	$healStudyDiv = NULL;
-	$divs = $session->getPage()->findAll('css','div[ng-if="!dc.isFolder(resource)"]');
+	$divs = $session->getPage()->findAll('css','div[ng-if="!dc.isFolder(resource)"]'); // Look for all non folder resources
 	if ( NULL == $divs )
 		throw new \Exception('Unable to access any non-resource folders from Dashboard');
 	foreach ( $divs as $div ) {
-		$healStudyDiv = $div; // just grab first one
-		break;
+		// Look for the UPDATED HEAL Study Core Metadata resource by name
+		$resource = $div->findAll('css','div[uib-tooltip="UPDATED HEAL Study Core Metadata"]'); // this may break, if they change the name
+		if ( null != $resource) {
+			$log->debug('Found our HEAL Study option in our Dashboard');
+			$healStudyDiv = $div;
+			break;
+		}
 	}
 	if ( NULL === $healStudyDiv )
-		throw new \Exception('Unable to access UPDATED Heal Study Core Metadata tile from Dashboard');
+		throw new \Exception('Unable to find our UPDATED Heal Study Core Metadata tile in our Dashboard');
 
 	// Click the Populate option
 	$button = $healStudyDiv->find('css','button') ;
