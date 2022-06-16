@@ -367,7 +367,7 @@ function getMetadataRecords () {
 	$response = curl_exec ($request);
 	if ( ! $response ) {
 		$log->error('Curl request to get record via CEDAR API did not work. Details are: ' . print_r(curl_info($request, true)));
-		throw new \Exception('Curl request to get records via CEDAR API did not work properly.')
+		throw new \Exception('Curl request to get records via CEDAR API did not work properly.');
 	}
 	$info = curl_getinfo($request);
 
